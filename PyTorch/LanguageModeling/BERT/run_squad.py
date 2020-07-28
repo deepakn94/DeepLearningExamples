@@ -1132,22 +1132,15 @@ def main():
         model.eval()
         all_results = []
         dllogger.log(step="PARAMETER", data={"eval_start": True})
-        for input_ids, input_mask, segment_ids, example_indices in tqdm(eval_dataloader, desc="Evaluating", disable=args.disable_progress_bar):
-            if len(all_results) % 1000 == 0:
-                dllogger.log(step="PARAMETER", data={"sample_number": len(all_results)})
+        for i, (input_ids, input_mask, segment_ids, example_indices) in enumerate(eval_dataloader):
             input_ids = input_ids.to(device)
             input_mask = input_mask.to(device)
             segment_ids = segment_ids.to(device)
             with torch.no_grad():
                 batch_start_logits, batch_end_logits = model(input_ids, segment_ids, input_mask)
-            for i, example_index in enumerate(example_indices):
-                start_logits = batch_start_logits[i].detach().cpu().tolist()
-                end_logits = batch_end_logits[i].detach().cpu().tolist()
-                eval_feature = eval_features[example_index.item()]
-                unique_id = int(eval_feature.unique_id)
-                all_results.append(RawResult(unique_id=unique_id,
-                                             start_logits=start_logits,
-                                             end_logits=end_logits))
+            if i % 100 == 0:
+                print("Average time per iteration: %.3f seconds" % (
+                    (time.time() - infer_start) / (i + 1)))
 
         time_to_infer = time.time() - infer_start
         output_prediction_file = os.path.join(args.output_dir, "predictions.json")
